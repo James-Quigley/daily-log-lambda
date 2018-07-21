@@ -128,7 +128,7 @@ const handlers = {
                             best
                         }
                     }, (writeErr, writeData) => {
-                        if (err) {
+                        if (writeErr) {
                             console.log("DDB Write Error", writeErr);
                             this.response.speak('Something went wrong');
                             this.emit(':responseReady');
