@@ -1,3 +1,7 @@
+// James Quigley & Alireza Bahremand
+// Need CI/CD to work
+
+
 /* eslint-disable  func-names */
 /* eslint quote-props: ["error", "consistent"]*/
 /**
@@ -10,6 +14,17 @@
 
 'use strict';
 const Alexa = require('alexa-sdk');
+const AWS = require('aws-sdk');
+AWS.config.update({
+    region: 'us-east-1'
+});
+
+// Create the DynamoDB service object
+const ddb = new AWS.DynamoDB({
+    apiVersion: '2012-10-08'
+});
+
+const ddbTableName = 'DailyLogResponseTable';
 
 //=========================================================================================================================================
 //TODO: The items below this comment need your attention.
@@ -25,23 +40,18 @@ const HELP_MESSAGE = 'You can say tell me a space fact, or, you can say exit... 
 const HELP_REPROMPT = 'What can I help you with?';
 const STOP_MESSAGE = 'Goodbye!';
 
+const WELCOME_MESSAGE = 'Good to talk to you! What was the best and worst parts of your day?';
+
+const questions = {
+    'highOfDay': 'What was the best part of your day?',
+    'lowOfDay': 'What was the worst part of your day?'
+}
+
 //=========================================================================================================================================
 //TODO: Replace this data with your own.  You can find translations of this data at http://github.com/alexa/skill-sample-node-js-fact/data
 //=========================================================================================================================================
 const data = [
-    'A year on Mercury is just 88 days long.',
-    'Despite being farther from the Sun, Venus experiences higher temperatures than Mercury.',
-    'Venus rotates counter-clockwise, possibly because of a collision in the past with an asteroid.',
-    'On Mars, the Sun appears about half the size as it does on Earth.',
-    'Earth is the only planet not named after a god.',
-    'Jupiter has the shortest day of all the planets.',
-    'The Milky Way galaxy will collide with the Andromeda Galaxy in about 5 billion years.',
-    'The Sun contains 99.86% of the mass in the Solar System.',
-    'The Sun is an almost perfect sphere.',
-    'A total solar eclipse can happen once every 1 to 2 years. This makes them a rare event.',
-    'Saturn radiates two and a half times more energy into space than it receives from the sun.',
-    'The temperature inside the Sun can reach 15 million degrees Celsius.',
-    'The Moon is moving approximately 3.8 cm away from our planet every year.',
+    'This is our first custom fact',
 ];
 
 //=========================================================================================================================================
@@ -50,17 +60,7 @@ const data = [
 
 const handlers = {
     'LaunchRequest': function () {
-        this.emit('GetNewFactIntent');
-    },
-    'GetNewFactIntent': function () {
-        const factArr = data;
-        const factIndex = Math.floor(Math.random() * factArr.length);
-        const randomFact = factArr[factIndex];
-        const speechOutput = GET_FACT_MESSAGE + randomFact;
-
-        this.response.cardRenderer(SKILL_NAME, randomFact);
-        this.response.speak(speechOutput);
-        this.emit(':responseReady');
+        this.emit('StartLogIntent');
     },
     'AMAZON.HelpIntent': function () {
         const speechOutput = HELP_MESSAGE;
@@ -77,6 +77,83 @@ const handlers = {
         this.response.speak(STOP_MESSAGE);
         this.emit(':responseReady');
     },
+    'StartLogIntent': function () {
+        // const factArr = data;
+        // const factIndex = Math.floor(Math.random() * factArr.length);
+        // const randomFact = factArr[factIndex];
+        // const speechOutput = GET_FACT_MESSAGE + randomFact;
+
+        // this.response.cardRenderer(SKILL_NAME, randomFact);
+        // this.response.speak(speechOutput);
+
+        this.response.speak(WELCOME_MESSAGE).listen('Tell me the best and worst parts of your day');
+        this.emit(':responseReady');
+    },
+    'BestOfDayIntent': function () {
+        let intent = this.event.request.intent.name;
+
+        let best = isSlotValid(this.event.request, "best");
+
+        console.log("best", best);
+        console.log(JSON.stringify(this));
+
+        let d = new Date();
+        d.setHours(0, 0, 0, 0);
+        ddb.getItem({
+            TableName: ddbTableName,
+            Key: {
+                'user_id': {
+                    S: this.event.session.user.userId
+                },
+                'date': {
+                    N: `${d.getTime()}`
+                }
+            }
+        }, (err, data) => {
+            if (err) {
+                console.log("DDB Error", err);
+                this.response.speak('Something went wrong');
+                this.emit(':responseReady');
+                return;
+            } else {
+                console.log("DDB Success", data);
+                if (data && data.best) {
+                    this.response.speak("You've already told me the best part of your day. I look forward to hearing about your day tomorrow!");
+                    this.emit(':responseReady');
+                } else {
+                    ddb.putItem({
+                        TableName: ddbTableName,
+                        Item: {
+                            ...data,
+                            best
+                        }
+                    }, (writeErr, writeData) => {
+                        if (err) {
+                            console.log("DDB Write Error", writeErr);
+                            this.response.speak('Something went wrong');
+                            this.emit(':responseReady');
+                            return;
+                        } else {
+                            console.log("DDB Write Success", writeData);
+                            this.response.speak(`Your best part of the day was ${best}. Thanks for telling me about your day. See you tomorrow!`);
+                            this.emit(':responseReady');
+                        }
+                    });
+                }
+            }
+        });
+
+    },
+    'WorstOfDayIntent': function () {
+        let intent = this.event.request.intent.name;
+
+        let worst = isSlotValid(this.event.request, "worst");
+
+        console.log("worst", worst);
+
+        this.response.speak(`Your worst part of the day was ${worst}. Thanks for telling me about your day. See you tomorrow!`);
+        this.emit(':responseReady');
+    },
 };
 
 exports.handler = function (event, context, callback) {
@@ -85,3 +162,20 @@ exports.handler = function (event, context, callback) {
     alexa.registerHandlers(handlers);
     alexa.execute();
 };
+
+
+function isSlotValid(request, slotName) {
+    var slot = request.intent.slots[slotName];
+    //console.log("request = "+JSON.stringify(request)); //uncomment if you want to see the request
+    var slotValue;
+
+    //if we have a slot, get the text and store it into speechOutput
+    if (slot && slot.value) {
+        //we have a value in the slot
+        slotValue = slot.value.toLowerCase();
+        return slotValue;
+    } else {
+        //we didn't get a value in the slot.
+        return false;
+    }
+}
