@@ -160,9 +160,63 @@ const handlers = {
         let worst = isSlotValid(this.event.request, "worst");
 
         console.log("worst", worst);
+        console.log(JSON.stringify(this));
 
-        this.response.speak(`Your worst part of the day was ${worst}. Thanks for telling me about your day. See you tomorrow!`);
-        this.emit(':responseReady');
+        let d = new Date();
+        d.setHours(0, 0, 0, 0);
+        ddb.getItem({
+            TableName: ddbTableName,
+            Key: {
+                'user_id': {
+                    S: this.event.session.user.userId
+                },
+                'date': {
+                    N: `${d.getTime()}`
+                }
+            }
+        }, (err, data) => {
+            if (err) {
+                console.log("DDB Error", err);
+                this.response.speak('Something went wrong');
+                this.emit(':responseReady');
+                return;
+            } else {
+                console.log("DDB Success", data);
+                if (data && data.Item && data.Item.worst) {
+                    this.response.speak("You've already told me the worst part of your day. I look forward to hearing about your day tomorrow!");
+                    this.emit(':responseReady');
+                } else {
+                    ddb.updateItem({
+                        TableName: ddbTableName,
+                        Key: {
+                            'user_id': {
+                                S: this.event.session.user.userId
+                            },
+                            'date': {
+                                N: `${d.getTime()}`
+                            }
+                        },
+                        UpdateExpression: "SET worst = :worst",
+                        ExpressionAttributeValues: {
+                            ":worst": {
+                                S: worst
+                            }
+                        }
+                    }, (writeErr, writeData) => {
+                        if (writeErr) {
+                            console.log("DDB Write Error", writeErr);
+                            this.response.speak('Something went wrong');
+                            this.emit(':responseReady');
+                            return;
+                        } else {
+                            console.log("DDB Write Success", writeData);
+                            this.response.speak(`Your worst part of the day was ${worst}. Thanks for telling me about your day. See you tomorrow!`);
+                            this.emit(':responseReady');
+                        }
+                    });
+                }
+            }
+        });
     },
 };
 
