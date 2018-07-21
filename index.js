@@ -43,8 +43,8 @@ const STOP_MESSAGE = 'Goodbye!';
 const WELCOME_MESSAGE = 'Good to talk to you! What was the best and worst parts of your day?';
 
 const questions = {
-    'highOfDay': 'What was the best part of your day?',
-    'lowOfDay': 'What was the worst part of your day?'
+    'best': 'What was the best part of your day?',
+    'worst': 'What was the worst part of your day?'
 }
 
 //=========================================================================================================================================
@@ -218,6 +218,48 @@ const handlers = {
             }
         });
     },
+    'SearchDayIntent': function () {
+        let intent = this.event.request.intent.name;
+
+        let date = isSlotValid(this.event.request, "date");
+
+        date = new Date(date);
+        date.setHours(0, 0, 0, 0);
+
+        ddb.getItem({
+            TableName: ddbTableName,
+            Key: {
+                'user_id': {
+                    S: this.event.session.user.userId
+                },
+                'date': {
+                    N: `${date.getTime()}`
+                }
+            }
+        }, (err, data) => {
+            if (err) {
+                console.log("DDB Error", err);
+                this.response.speak('Something went wrong');
+                this.emit(':responseReady');
+                return;
+            } else if (data.Item) {
+                console.log("DDB Success", data);
+                let search = '';
+                for (let question in questions) {
+                    console.log("question", question);
+                    if (data && data.Item && data.Item[question].S) {
+                        console.log("answer", data.Item[question].S);
+                        search += `${question} was ${data.Item[question].S}. `;
+                    }
+                }
+                this.response.speak(`On that day. ${search}. That's all from that day`);
+                this.emit(':responseReady');
+            } else {
+                this.response.speak(`No log was created on that day`);
+                this.emit(':responseReady');
+            }
+        });
+    }
 };
 
 exports.handler = function (event, context, callback) {
