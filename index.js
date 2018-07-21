@@ -117,7 +117,7 @@ const handlers = {
                 return;
             } else {
                 console.log("DDB Success", data);
-                if (data && data.best) {
+                if (data && data.Item && data.Item.best) {
                     this.response.speak("You've already told me the best part of your day. I look forward to hearing about your day tomorrow!");
                     this.emit(':responseReady');
                 } else {
