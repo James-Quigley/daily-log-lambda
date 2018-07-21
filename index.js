@@ -121,11 +121,21 @@ const handlers = {
                     this.response.speak("You've already told me the best part of your day. I look forward to hearing about your day tomorrow!");
                     this.emit(':responseReady');
                 } else {
-                    ddb.putItem({
+                    ddb.updateItem({
                         TableName: ddbTableName,
-                        Item: {
-                            ...data,
-                            best
+                        Key: {
+                            'user_id': {
+                                S: this.event.session.user.userId
+                            },
+                            'date': {
+                                N: `${d.getTime()}`
+                            }
+                        },
+                        UpdateExpression: "SET best = :best",
+                        ExpressionAttributeValues: {
+                            ":best": {
+                                S: best
+                            }
                         }
                     }, (writeErr, writeData) => {
                         if (writeErr) {
