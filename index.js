@@ -1,16 +1,4 @@
 // James Quigley & Alireza Bahremand
-// Need CI/CD to work
-
-
-/* eslint-disable  func-names */
-/* eslint quote-props: ["error", "consistent"]*/
-/**
- * This sample demonstrates a simple skill built with the Amazon Alexa Skills
- * nodejs skill development kit.
- * This sample supports multiple lauguages. (en-US, en-GB, de-DE).
- * The Intent Schema, Custom Slots and Sample Utterances for this skill, as well
- * as testing instructions are located at https://github.com/alexa/skill-sample-nodejs-fact
- **/
 
 'use strict';
 const Alexa = require('alexa-sdk');
@@ -26,18 +14,9 @@ const ddb = new AWS.DynamoDB({
 
 const ddbTableName = 'DailyLogResponseTable';
 
-//=========================================================================================================================================
-//TODO: The items below this comment need your attention.
-//=========================================================================================================================================
 
-//Replace with your app ID (OPTIONAL).  You can find this value at the top of your skill's page on http://developer.amazon.com.
-//Make sure to enclose your value in quotes, like this: const APP_ID = 'amzn1.ask.skill.bb4045e6-b3e8-4133-b650-72923c5980f1';
-const APP_ID = undefined;
-
-const SKILL_NAME = 'Space Facts';
-const GET_FACT_MESSAGE = "Here's your fact: ";
-const HELP_MESSAGE = 'You can say tell me a space fact, or, you can say exit... What can I help you with?';
-const HELP_REPROMPT = 'What can I help you with?';
+const HELP_MESSAGE = 'You can say: the best part of my day was... or the worst part of my day was. Tell me about your day!';
+const HELP_REPROMPT = 'Tell me about the best and worst parts of your day';
 const STOP_MESSAGE = 'Goodbye!';
 
 const WELCOME_MESSAGE = 'Good to talk to you! What was the best and worst parts of your day?';
@@ -46,17 +25,6 @@ const questions = {
     'best': 'What was the best part of your day?',
     'worst': 'What was the worst part of your day?'
 }
-
-//=========================================================================================================================================
-//TODO: Replace this data with your own.  You can find translations of this data at http://github.com/alexa/skill-sample-node-js-fact/data
-//=========================================================================================================================================
-const data = [
-    'This is our first custom fact',
-];
-
-//=========================================================================================================================================
-//Editing anything below this line might break your skill.
-//=========================================================================================================================================
 
 const handlers = {
     'LaunchRequest': function () {
@@ -77,15 +45,13 @@ const handlers = {
         this.response.speak(STOP_MESSAGE);
         this.emit(':responseReady');
     },
+    'SessionEndedRequest': function () {
+        this.emit('AMAZON.StopIntent');
+    },
+    'Undefined': function () {
+        this.emit('AMAZON.HelpIntent')
+    },
     'StartLogIntent': function () {
-        // const factArr = data;
-        // const factIndex = Math.floor(Math.random() * factArr.length);
-        // const randomFact = factArr[factIndex];
-        // const speechOutput = GET_FACT_MESSAGE + randomFact;
-
-        // this.response.cardRenderer(SKILL_NAME, randomFact);
-        // this.response.speak(speechOutput);
-
         this.response.speak(WELCOME_MESSAGE).listen('Tell me the best and worst parts of your day');
         this.emit(':responseReady');
     },
@@ -264,24 +230,20 @@ const handlers = {
 
 exports.handler = function (event, context, callback) {
     const alexa = Alexa.handler(event, context, callback);
-    alexa.APP_ID = APP_ID;
     alexa.registerHandlers(handlers);
+    alexa.appId = "amzn1.ask.skill.a4ac824f-57d8-4af7-8479-90656f9b294d";
     alexa.execute();
 };
 
 
 function isSlotValid(request, slotName) {
     var slot = request.intent.slots[slotName];
-    //console.log("request = "+JSON.stringify(request)); //uncomment if you want to see the request
     var slotValue;
 
-    //if we have a slot, get the text and store it into speechOutput
     if (slot && slot.value) {
-        //we have a value in the slot
         slotValue = slot.value.toLowerCase();
         return slotValue;
     } else {
-        //we didn't get a value in the slot.
         return false;
     }
 }
